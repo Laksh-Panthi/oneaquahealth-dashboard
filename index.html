@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OneAquaHealth - Citizen Science Monitoring Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    code, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tooltip-active {
+      transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased min-h-screen">
+  <!-- Top Banner & Navigation -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center text-white text-xl shadow-md">
+          💧
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">OneAquaHealth</h1>
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-700 border border-sky-200">
+              Citizen Science Hub
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">
+            Freshwater Ecosystem Surveillance • Horizon Europe Grant 101086521
+          </p>
+        </div>
+      </div>
+
+      <!-- Controls: City Filter & Quick Status -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+          <label for="city-select" class="text-xs font-semibold text-slate-600">Pilot Basin:</label>
+          <select id="city-select" onchange="handleCityChange(this.value)" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
+            <option value="all">All 5 Basins (100 Sites)</option>
+            <option value="Coimbra">Coimbra, Portugal</option>
+            <option value="Benevento">Benevento, Italy</option>
+            <option value="Ghent">Ghent, Belgium</option>
+            <option value="Oslo">Oslo, Norway</option>
+            <option value="Toulouse">Toulouse, France</option>
+          </select>
+        </div>
+
+        <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          ● Seed Data: Active
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Notice Badge -->
+    <div class="bg-sky-50 border border-sky-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-sky-900">
+      <div class="flex items-center space-x-2">
+        <span>ℹ️</span>
+        <span>
+          <strong>Open Science Note:</strong> All 100 site profiles and seed observations follow Zenodo harmonized protocols and are labeled with <code class="bg-sky-100 px-1.5 py-0.5 rounded font-mono font-semibold">source: "synthetic"</code>.
+        </span>
+      </div>
+      <a href="docs/open-data-assessment.md" target="_blank" class="hidden sm:inline font-semibold text-sky-700 hover:underline">
+        Read Assessment Note &rarr;
+      </a>
+    </div>
+
+    <!-- 3 Core Stat Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <!-- Card 1: Coverage Rate -->
+      <div class="bg-white rounded-2xl border border-emerald-200/80 p-6 shadow-xs relative overflow-hidden">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Coverage Rate</span>
+          <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-bold">🎯</span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="stat-coverage" class="text-4xl font-extrabold text-emerald-950 tracking-tight">72.0%</span>
+        </div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <span id="stat-coverage-sub" class="text-slate-600 font-medium">72 of 100 sites verified</span>
+          <span class="px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800">+14% MoM</span>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+      </div>
+
+      <!-- Card 2: Never-Checked Sites -->
+      <div class="bg-white rounded-2xl border border-amber-200/80 p-6 shadow-xs relative overflow-hidden">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Never-Checked Sites</span>
+          <span class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold">⚠️</span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="stat-never" class="text-4xl font-extrabold text-amber-950 tracking-tight">28</span>
+          <span class="text-sm font-semibold text-slate-500">sites pending</span>
+        </div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <span id="stat-never-sub" class="text-slate-600 font-medium">28.0% of basin unvisited</span>
+          <span class="px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800">Priority Action</span>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
+      </div>
+
+      <!-- Card 3: Avg Days Since Check -->
+      <div class="bg-white rounded-2xl border border-sky-200/80 p-6 shadow-xs relative overflow-hidden">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Avg Days Since Check</span>
+          <span class="w-8 h-8 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center text-sm font-bold">⏱️</span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span id="stat-days" class="text-4xl font-extrabold text-sky-950 tracking-tight">11.4</span>
+          <span class="text-sm font-semibold text-slate-500">days ago</span>
+        </div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <span class="text-slate-600 font-medium">Freshness across active reaches</span>
+          <span class="px-2 py-0.5 rounded-full font-bold bg-sky-100 text-sky-800">Optimal &lt; 14d</span>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-sky-500"></div>
+      </div>
+    </section>
+
+    <!-- Community Challenge Progress Bar -->
+    <section class="bg-gradient-to-r from-sky-50 via-teal-50/40 to-indigo-50 border border-sky-100 rounded-2xl p-6 shadow-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-2xl">🌊</span>
+            <h2 class="text-lg font-bold text-slate-900">OneAquaHealth Community Challenge</h2>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-200 text-sky-800">
+              Sprint 2026
+            </span>
+          </div>
+          <p class="text-xs text-slate-600 mt-1">
+            Crowdsourcing 200 freshwater field checks across 5 European pilot cities
+          </p>
+        </div>
+
+        <div class="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs self-start sm:self-auto">
+          <span class="text-xl">🏅</span>
+          <div>
+            <div class="text-[10px] uppercase font-bold text-slate-400">Volunteer Badge</div>
+            <div id="challenge-tier" class="text-xs font-bold text-sky-700">Bronze Stream Scout</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bar -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-baseline text-xs">
+          <span class="font-semibold text-slate-700">
+            <strong id="challenge-current" class="text-xl text-sky-700 font-extrabold">130</strong>
+            <span class="text-slate-400"> / 200 Total Observations</span>
+          </span>
+          <span id="challenge-pct" class="font-extrabold text-base text-sky-700 font-mono">65% Complete</span>
+        </div>
+
+        <div class="w-full h-4 bg-slate-200 rounded-full overflow-hidden p-0.5">
+          <div id="challenge-bar" class="h-full rounded-full bg-gradient-to-r from-sky-500 via-teal-400 to-indigo-500 transition-all duration-700 ease-out" style="width: 65%;"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-[11px] text-slate-400 pt-1">
+          <span>0 (Kickoff)</span>
+          <span class="text-teal-700 font-semibold">75 (Bronze Scout)</span>
+          <span class="text-sky-700 font-semibold">150 (Silver Guardian)</span>
+          <span class="text-indigo-700 font-semibold">200 (Gold Champion)</span>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-2">
+        <div>🎯 Next Tier Unlock: <strong id="challenge-next-tier" class="text-slate-800">Silver River Guardian (150 Checks)</strong></div>
+        <div class="text-sky-700 font-medium">
+          Only <strong id="challenge-remaining">20</strong> more checks needed to unlock the next community badge!
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid: Recharts Bar Chart & Observations Feed -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Bar Chart (7 Cols) -->
+      <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Monitoring Coverage per Pilot City</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Comparison of verified sites vs. unmonitored reaches (20 sites per city)</p>
+          </div>
+
+          <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 self-start sm:self-auto">
+            <button id="btn-grouped" onclick="setChartMode('grouped')" class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-xs">
+              Grouped
+            </button>
+            <button id="btn-stacked" onclick="setChartMode('stacked')" class="px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-900">
+              Stacked (Total 20)
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive SVG Chart Component (Recharts Equivalent) -->
+        <div class="relative w-full h-72">
+          <svg id="city-bar-chart" class="w-full h-full" viewBox="0 0 540 260">
+            <!-- Rendered by JavaScript -->
+          </svg>
+          <div id="chart-tooltip" class="absolute pointer-events-none opacity-0 tooltip-active z-30 bg-slate-900/95 text-white p-3 rounded-xl shadow-xl text-xs border border-slate-700"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center justify-center space-x-6 pt-4 border-t border-slate-100 text-xs text-slate-600">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-sky-500"></span>
+            <span>Monitored Sites</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <span>Never-Checked Sites</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Observations Feed (5 Cols) -->
+      <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Recent Field Observations</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Standardized citizen checks from seed-observations.json</p>
+          </div>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+            Live Feed
+          </span>
+        </div>
+
+        <div id="observations-feed" class="space-y-3 overflow-y-auto max-h-[310px] pr-1">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Pilot Sites & Never-Checked Priority Table -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <h3 class="text-base font-bold text-slate-900">Pilot Site Registry & Priority Alerts</h3>
+            <span id="site-count-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              100 Reaches
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Prioritize volunteer checks to unmonitored stream reaches</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button id="btn-filter-never" onclick="setSiteFilter('never')" class="px-3 py-1 text-xs font-bold rounded-md bg-amber-500 text-white shadow-xs">
+              ⚠️ Never Checked
+            </button>
+            <button id="btn-filter-checked" onclick="setSiteFilter('checked')" class="px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900">
+              ✓ Monitored
+            </button>
+            <button id="btn-filter-all" onclick="setSiteFilter('all')" class="px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900">
+              All (100 Sites)
+            </button>
+          </div>
+
+          <input
+            id="table-search"
+            type="text"
+            oninput="handleSearch(this.value)"
+            placeholder="Search river or site..."
+            class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-50 text-slate-700 font-bold border-y border-slate-200">
+            <tr>
+              <th class="py-2.5 px-3">Site ID</th>
+              <th class="py-2.5 px-3">Site Name & River</th>
+              <th class="py-2.5 px-3">City</th>
+              <th class="py-2.5 px-3">Stream Type</th>
+              <th class="py-2.5 px-3">Status</th>
+              <th class="py-2.5 px-3">Last Check</th>
+              <th class="py-2.5 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="sites-tbody" class="divide-y divide-slate-100">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+      <div id="table-pagination-info" class="text-xs text-slate-400 text-center pt-2"></div>
+    </section>
+  </main>
+
+  <!-- Site Detail Modal -->
+  <div id="site-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <span id="modal-site-code" class="text-[11px] font-mono uppercase tracking-wider text-sky-600 font-bold"></span>
+          <h3 id="modal-site-name" class="text-lg font-bold text-slate-900 mt-0.5"></h3>
+          <p id="modal-site-river" class="text-xs text-slate-500"></p>
+        </div>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 text-sm">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-2 text-xs border-y border-slate-100 py-3">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Coordinates:</span>
+          <span id="modal-coords" class="font-mono text-slate-800"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Stream Type:</span>
+          <span id="modal-stream-type" class="capitalize font-medium text-slate-800"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Accessibility:</span>
+          <span id="modal-accessibility" class="capitalize font-medium text-slate-800"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Data Origin:</span>
+          <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] text-slate-700">synthetic</span>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-bold text-slate-800 mb-2">Monitored Quality Parameters:</h4>
+        <div id="modal-params" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:opacity-90">
+          Close Details
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Embedded Data & Reactive Logic -->
+  <script>
+    // State variables
+    let rawSites = [];
+    let rawObservations = [];
+    let currentCity = 'all';
+    let currentChartMode = 'grouped'; // 'grouped' or 'stacked'
+    let currentSiteFilter = 'never';  // 'never', 'checked', 'all'
+    let currentSearchTerm = '';
+
+    // Pilot Basins coordinates and meta
+    const CITIES = ["Coimbra", "Benevento", "Ghent", "Oslo", "Toulouse"];
+
+    // Data bootstrap function
+    async function initDashboard() {
+      try {
+        const [sitesRes, obsRes] = await Promise.all([
+          fetch('data/sites.json'),
+          fetch('data/seed-observations.json')
+        ]);
+        if (!sitesRes.ok || !obsRes.ok) throw new Error("HTTP error loading JSON");
+        rawSites = await sitesRes.json();
+        rawObservations = await obsRes.json();
+      } catch (err) {
+        console.warn("Loading via fetch failed (possibly file:// protocol). Initializing from fallback generator.", err);
+        generateFallbackData();
+      }
+      render();
+    }
+
+    function generateFallbackData() {
+      // Direct high-fidelity fallback generator if opened directly from local filesystem
+      const citiesConfig = {
+        "Coimbra": { country: "Portugal", baseLat: 40.2056, baseLng: -8.4195, river: "Rio Mondego" },
+        "Benevento": { country: "Italy", baseLat: 41.1307, baseLng: 14.7825, river: "Fiume Calore" },
+        "Ghent": { country: "Belgium", baseLat: 51.0543, baseLng: 3.7174, river: "Leie River" },
+        "Oslo": { country: "Norway", baseLat: 59.9139, baseLng: 10.7522, river: "Akerselva" },
+        "Toulouse": { country: "France", baseLat: 43.6047, baseLng: 1.4442, river: "Garonne" }
+      };
+
+      rawSites = [];
+      CITIES.forEach(city => {
+        const conf = citiesConfig[city];
+        for (let i = 1; i <= 20; i++) {
+          const code = city.slice(0, 3).toUpperCase();
+          rawSites.push({
+            id: `${code}-${String(i).padStart(3, '0')}`,
+            name: `${conf.river} - Reach ${i}`,
+            city: city,
+            country: conf.country,
+            coordinates: { lat: conf.baseLat + (i * 0.001), lng: conf.baseLng + (i * 0.001) },
+            waterBody: conf.river,
+            streamType: i % 2 === 0 ? "urban_river" : "headwater",
+            targetParameters: ["water_temp", "pH", "dissolved_oxygen", "turbidity", "wellbeing_rating"],
+            accessibility: "public_park",
+            priorityLevel: i < 6 ? "high" : "normal",
+            source: "synthetic"
+          });
+        }
+      });
+
+      // 72 checked sites, 28 never checked
+      rawObservations = [];
+      const checkedSites = rawSites.slice(0, 72);
+      checkedSites.forEach((s, idx) => {
+        const daysAgo = (idx % 20) + 1;
+        rawObservations.push({
+          id: `OBS-2026-${String(idx + 1).padStart(4, '0')}`,
+          siteId: s.id,
+          siteName: s.name,
+          city: s.city,
+          waterBody: s.waterBody,
+          daysAgo: daysAgo,
+          observerId: `Volunteer_${s.city}`,
+          measurements: {
+            waterTempC: (15.5 + (idx % 4)).toFixed(1),
+            pH: (7.2 + (idx % 6) * 0.1).toFixed(2),
+            dissolvedOxygenMgL: (7.8 + (idx % 3) * 0.4).toFixed(2),
+            turbidityNTU: (3.2 + (idx % 5)).toFixed(1),
+            streamHealthScore: (7.5 + (idx % 3) * 0.6).toFixed(1),
+            wellbeingRating: (4.0 + (idx % 2) * 0.5).toFixed(1)
+          },
+          notes: "Good water clarity, healthy riparian buffer, citizens observed along bank.",
+          hasPhoto: true,
+          source: "synthetic"
+        });
+      });
+    }
+
+    function render() {
+      // 1. Filter sites
+      const sites = currentCity === 'all' 
+        ? rawSites 
+        : rawSites.filter(s => s.city.toLowerCase() === currentCity.toLowerCase());
+
+      const siteIdSet = new Set(sites.map(s => s.id));
+      const obs = rawObservations.filter(o => siteIdSet.has(o.siteId));
+
+      // 2. Identify checked vs never checked
+      const checkedMap = {};
+      obs.forEach(o => {
+        if (!checkedMap[o.siteId] || o.daysAgo < checkedMap[o.siteId].daysAgo) {
+          checkedMap[o.siteId] = o;
+        }
+      });
+
+      const totalSites = sites.length;
+      const checkedCount = Object.keys(checkedMap).length;
+      const neverCount = totalSites - checkedCount;
+      const coveragePct = totalSites > 0 ? ((checkedCount / totalSites) * 100).toFixed(1) : 0;
+      const neverPct = totalSites > 0 ? ((neverCount / totalSites) * 100).toFixed(1) : 0;
+
+      // Avg days since check
+      let avgDays = 0;
+      if (checkedCount > 0) {
+        const sumDays = Object.values(checkedMap).reduce((acc, curr) => acc + curr.daysAgo, 0);
+        avgDays = (sumDays / checkedCount).toFixed(1);
+      }
+
+      // Update 3 Stat Cards
+      document.getElementById('stat-coverage').textContent = `${coveragePct}%`;
+      document.getElementById('stat-coverage-sub').textContent = `${checkedCount} of ${totalSites} sites verified`;
+      document.getElementById('stat-never').textContent = neverCount;
+      document.getElementById('stat-never-sub').textContent = `${neverPct}% of basin unvisited`;
+      document.getElementById('stat-days').textContent = avgDays;
+
+      // Update Community Challenge
+      const targetChecks = 200;
+      const totalChecks = rawObservations.length;
+      const challengePct = Math.min(100, Math.round((totalChecks / targetChecks) * 100));
+      document.getElementById('challenge-current').textContent = totalChecks;
+      document.getElementById('challenge-pct').textContent = `${challengePct}% Complete`;
+      document.getElementById('challenge-bar').style.width = `${challengePct}%`;
+      document.getElementById('challenge-remaining').textContent = Math.max(0, targetChecks - totalChecks);
+
+      let tier = "Bronze Stream Scout";
+      let nextTier = "Silver River Guardian (150 Checks)";
+      if (totalChecks >= 200) {
+        tier = "Gold Aquatic Champion";
+        nextTier = "Milestone Completed!";
+      } else if (totalChecks >= 150) {
+        tier = "Silver River Guardian";
+        nextTier = "Gold Aquatic Champion (200 Checks)";
+      }
+      document.getElementById('challenge-tier').textContent = tier;
+      document.getElementById('challenge-next-tier').textContent = nextTier;
+
+      // Render Bar Chart
+      renderBarChart();
+
+      // Render Feed
+      renderObservationsFeed(obs);
+
+      // Render Sites Table
+      renderSitesTable(sites, checkedMap);
+    }
+
+    function renderBarChart() {
+      const svg = document.getElementById('city-bar-chart');
+      svg.innerHTML = '';
+
+      // Compute stats for each city
+      const cityData = CITIES.map(city => {
+        const cSites = rawSites.filter(s => s.city.toLowerCase() === city.toLowerCase());
+        const cSiteIds = new Set(cSites.map(s => s.id));
+        const cObs = rawObservations.filter(o => cSiteIds.has(o.siteId));
+        const cCheckedIds = new Set(cObs.map(o => o.siteId));
+        const total = cSites.length || 20;
+        const checked = cCheckedIds.size;
+        const never = total - checked;
+        return { city, total, checked, never, obsCount: cObs.length };
+      });
+
+      // Chart dimensions
+      const width = 540;
+      const height = 260;
+      const padding = { top: 20, right: 20, bottom: 40, left: 40 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      // Grid lines
+      const maxVal = 25;
+      for (let i = 0; i <= 5; i++) {
+        const val = i * 5;
+        const y = padding.top + chartHeight - (val / maxVal) * chartHeight;
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', padding.left);
+        line.setAttribute('x2', width - padding.right);
+        line.setAttribute('y1', y);
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', '#e2e8f0');
+        line.setAttribute('stroke-dasharray', '3 3');
+        svg.appendChild(line);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', padding.left - 8);
+        text.setAttribute('y', y + 4);
+        text.setAttribute('font-size', '10');
+        text.setAttribute('fill', '#94a3b8');
+        text.setAttribute('text-anchor', 'end');
+        text.textContent = val;
+        svg.appendChild(text);
+      }
+
+      // Render Bars per city
+      const colWidth = chartWidth / cityData.length;
+      cityData.forEach((d, idx) => {
+        const centerX = padding.left + (idx + 0.5) * colWidth;
+
+        // X-Axis Label
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', centerX);
+        label.setAttribute('y', height - 12);
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', currentCity.toLowerCase() === d.city.toLowerCase() ? 'bold' : 'normal');
+        label.setAttribute('fill', currentCity.toLowerCase() === d.city.toLowerCase() ? '#0284c7' : '#64748b');
+        label.setAttribute('text-anchor', 'middle');
+        label.textContent = d.city;
+        label.classList.add('cursor-pointer');
+        label.onclick = () => {
+          document.getElementById('city-select').value = d.city;
+          handleCityChange(d.city);
+        };
+        svg.appendChild(label);
+
+        if (currentChartMode === 'grouped') {
+          // Grouped Bars
+          const barW = 20;
+          const checkedH = (d.checked / maxVal) * chartHeight;
+          const neverH = (d.never / maxVal) * chartHeight;
+
+          // Checked Bar (Sky)
+          const rect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect1.setAttribute('x', centerX - barW - 2);
+          rect1.setAttribute('y', padding.top + chartHeight - checkedH);
+          rect1.setAttribute('width', barW);
+          rect1.setAttribute('height', checkedH);
+          rect1.setAttribute('rx', 4);
+          rect1.setAttribute('fill', '#0ea5e9');
+          attachTooltip(rect1, `${d.city} (Checked)`, `${d.checked} of ${d.total} sites monitored`);
+          svg.appendChild(rect1);
+
+          // Never Checked Bar (Amber)
+          const rect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect2.setAttribute('x', centerX + 2);
+          rect2.setAttribute('y', padding.top + chartHeight - neverH);
+          rect2.setAttribute('width', barW);
+          rect2.setAttribute('height', neverH);
+          rect2.setAttribute('rx', 4);
+          rect2.setAttribute('fill', '#f59e0b');
+          attachTooltip(rect2, `${d.city} (Pending)`, `${d.never} sites need initial visit`);
+          svg.appendChild(rect2);
+        } else {
+          // Stacked Bars (Total = 20)
+          const barW = 32;
+          const checkedH = (d.checked / maxVal) * chartHeight;
+          const neverH = (d.never / maxVal) * chartHeight;
+
+          const rect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect1.setAttribute('x', centerX - barW / 2);
+          rect1.setAttribute('y', padding.top + chartHeight - checkedH);
+          rect1.setAttribute('width', barW);
+          rect1.setAttribute('height', checkedH);
+          rect1.setAttribute('fill', '#0ea5e9');
+          attachTooltip(rect1, `${d.city} (Checked)`, `${d.checked} sites checked`);
+          svg.appendChild(rect1);
+
+          const rect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect2.setAttribute('x', centerX - barW / 2);
+          rect2.setAttribute('y', padding.top + chartHeight - checkedH - neverH);
+          rect2.setAttribute('width', barW);
+          rect2.setAttribute('height', neverH);
+          rect2.setAttribute('rx', 4);
+          rect2.setAttribute('fill', '#f59e0b');
+          attachTooltip(rect2, `${d.city} (Pending)`, `${d.never} sites unmonitored`);
+          svg.appendChild(rect2);
+        }
+      });
+    }
+
+    function attachTooltip(el, title, text) {
+      const tooltip = document.getElementById('chart-tooltip');
+      el.addEventListener('mouseenter', (e) => {
+        tooltip.innerHTML = `<div class="font-bold text-sky-400 mb-0.5">${title}</div><div>${text}</div>`;
+        tooltip.style.opacity = '1';
+      });
+      el.addEventListener('mousemove', (e) => {
+        const bounds = document.querySelector('.relative.w-full.h-72').getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - bounds.left + 10}px`;
+        tooltip.style.top = `${e.clientY - bounds.top - 35}px`;
+      });
+      el.addEventListener('mouseleave', () => {
+        tooltip.style.opacity = '0';
+      });
+    }
+
+    function renderObservationsFeed(obs) {
+      const container = document.getElementById('observations-feed');
+      container.innerHTML = '';
+      const displayList = obs.slice(0, 5);
+
+      if (displayList.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-400">No field checks recorded for selected basin yet.</div>`;
+        return;
+      }
+
+      displayList.forEach(item => {
+        const card = document.createElement('div');
+        card.className = "p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:border-slate-200 transition-all text-xs";
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono font-bold text-sky-600">${item.siteId}</span>
+              <span class="text-slate-400">•</span>
+              <span class="font-bold text-slate-800">${item.siteName}</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-400">${item.daysAgo}d ago</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 py-1.5 px-2 bg-white rounded-lg border border-slate-100 my-1 text-[11px] font-mono">
+            <div><span class="text-[9px] text-slate-400 block font-sans">TEMP</span><strong>${item.measurements.waterTempC}°C</strong></div>
+            <div><span class="text-[9px] text-slate-400 block font-sans">pH</span><strong>${item.measurements.pH}</strong></div>
+            <div><span class="text-[9px] text-slate-400 block font-sans">DO</span><strong>${item.measurements.dissolvedOxygenMgL}</strong></div>
+            <div><span class="text-[9px] text-slate-400 block font-sans">HEALTH</span><strong class="text-emerald-600">${item.measurements.streamHealthScore}/10</strong></div>
+          </div>
+          <p class="text-slate-600 italic text-[11px] mt-1">"${item.notes}"</p>
+          <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 mt-1 border-t border-slate-100">
+            <span>By: <strong>${item.observerId}</strong></span>
+            <span>Wellbeing: <strong class="text-sky-600">${item.measurements.wellbeingRating}/5</strong></span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderSitesTable(sites, checkedMap) {
+      const tbody = document.getElementById('sites-tbody');
+      tbody.innerHTML = '';
+
+      let list = sites.map(s => ({
+        ...s,
+        isChecked: !!checkedMap[s.id],
+        daysAgo: checkedMap[s.id] ? checkedMap[s.id].daysAgo : null
+      }));
+
+      // Filter by status tab
+      if (currentSiteFilter === 'never') {
+        list = list.filter(s => !s.isChecked);
+      } else if (currentSiteFilter === 'checked') {
+        list = list.filter(s => s.isChecked);
+      }
+
+      // Filter by search
+      if (currentSearchTerm) {
+        const term = currentSearchTerm.toLowerCase();
+        list = list.filter(s => 
+          s.name.toLowerCase().includes(term) ||
+          s.id.toLowerCase().includes(term) ||
+          s.waterBody.toLowerCase().includes(term) ||
+          s.city.toLowerCase().includes(term)
+        );
+      }
+
+      document.getElementById('site-count-badge').textContent = `${list.length} Reaches`;
+      document.getElementById('table-pagination-info').textContent = 
+        `Showing ${Math.min(10, list.length)} of ${list.length} sites matching filter.`;
+
+      list.slice(0, 10).forEach(site => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition-colors";
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-mono font-bold text-slate-800">${site.id}</td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-900">${site.name}</div>
+            <div class="text-[11px] text-slate-400">${site.waterBody}</div>
+          </td>
+          <td class="py-3 px-3 font-medium text-slate-700">${site.city}</td>
+          <td class="py-3 px-3 capitalize"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">${site.streamType.replace('_', ' ')}</span></td>
+          <td class="py-3 px-3">
+            ${site.isChecked
+              ? '<span class="px-2 py-0.5 rounded-full font-bold text-[11px] bg-emerald-100 text-emerald-800">✓ Monitored</span>'
+              : '<span class="px-2 py-0.5 rounded-full font-bold text-[11px] bg-amber-100 text-amber-800">⚠️ Never Checked</span>'}
+          </td>
+          <td class="py-3 px-3 font-mono text-[11px]">
+            ${site.isChecked ? `${site.daysAgo}d ago` : '<span class="text-rose-500 font-bold">Pending Visit</span>'}
+          </td>
+          <td class="py-3 px-3 text-right">
+            <button onclick="openSiteModal('${site.id}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors">
+              Details
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs">No sites found matching criteria.</td></tr>`;
+      }
+    }
+
+    // Interactive Handlers
+    function handleCityChange(city) {
+      currentCity = city;
+      render();
+    }
+
+    function setChartMode(mode) {
+      currentChartMode = mode;
+      document.getElementById('btn-grouped').className = mode === 'grouped'
+        ? 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-xs'
+        : 'px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-900';
+      document.getElementById('btn-stacked').className = mode === 'stacked'
+        ? 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-xs'
+        : 'px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-900';
+      renderBarChart();
+    }
+
+    function setSiteFilter(filter) {
+      currentSiteFilter = filter;
+      const btns = {
+        never: document.getElementById('btn-filter-never'),
+        checked: document.getElementById('btn-filter-checked'),
+        all: document.getElementById('btn-filter-all')
+      };
+
+      Object.keys(btns).forEach(key => {
+        if (key === filter) {
+          btns[key].className = key === 'never'
+            ? 'px-3 py-1 text-xs font-bold rounded-md bg-amber-500 text-white shadow-xs'
+            : (key === 'checked'
+                ? 'px-3 py-1 text-xs font-bold rounded-md bg-sky-600 text-white shadow-xs'
+                : 'px-3 py-1 text-xs font-bold rounded-md bg-slate-800 text-white shadow-xs');
+        } else {
+          btns[key].className = 'px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900';
+        }
+      });
+
+      render();
+    }
+
+    function handleSearch(term) {
+      currentSearchTerm = term;
+      render();
+    }
+
+    function openSiteModal(siteId) {
+      const site = rawSites.find(s => s.id === siteId);
+      if (!site) return;
+
+      document.getElementById('modal-site-code').textContent = `${site.id} • ${site.city}, ${site.country}`;
+      document.getElementById('modal-site-name').textContent = site.name;
+      document.getElementById('modal-site-river').textContent = `River/Stream Basin: ${site.waterBody}`;
+      document.getElementById('modal-coords').textContent = `${site.coordinates.lat.toFixed(4)}, ${site.coordinates.lng.toFixed(4)}`;
+      document.getElementById('modal-stream-type').textContent = site.streamType.replace('_', ' ');
+      document.getElementById('modal-accessibility').textContent = site.accessibility.replace('_', ' ');
+
+      const paramsContainer = document.getElementById('modal-params');
+      paramsContainer.innerHTML = '';
+      site.targetParameters.forEach(param => {
+        const badge = document.createElement('span');
+        badge.className = "px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[11px] font-mono font-semibold";
+        badge.textContent = param;
+        paramsContainer.appendChild(badge);
+      });
+
+      const modal = document.getElementById('site-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('site-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', initDashboard);
+  </script>
+</body>
+</html>
